@@ -1,0 +1,14 @@
+
+.data-table-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.selectInput {
+    width: 320px;
+}
+
+.selectContainer {
+    display: flex;
+    justify-content: center;
+}
