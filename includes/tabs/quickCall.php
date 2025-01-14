@@ -111,7 +111,6 @@
 
 <script>
     (function($) {
-
         var callSid = null;
         var checkCount = 0;
         var maxChecks = 5;
@@ -184,6 +183,18 @@
             checkCount = 0;
         }
 
+        function displayCallStatusInSwal(status) {
+            var data = statusData[status] || statusData['default'];
+            Swal.fire({
+                icon: data.color === 'green' ? 'success' : 'error',
+                title: `Call Status: ${data.text}`,
+                // text: `${data.icon} <br> ${data.text}`,
+                confirmButtonText: 'OK'
+            }).then(() => {
+                location.reload();
+            });
+        }
+
         $(document).ready(function() {
             localStorage.removeItem('callFromNumber');
             localStorage.removeItem('callToNumber');
@@ -207,7 +218,7 @@
                     localStorage.setItem('callFromNumber', selectedCallFrom);
                 }
             });
-            
+
             $('#connectedByDropdown').on('change', function() {
                 const selectedConnectTo = $(this).val();
                 if (selectedConnectTo === "Web Browser" || selectedConnectTo === "Admin") {
@@ -260,7 +271,7 @@
 
                 // Update dial pad display
                 if (input) {
-                    $('#dial_pad').removeClass('d-none');
+                    $('#dial_pad').addClass('d-none');
                     $('#number-display').text(input);
                     localStorage.setItem('callToNumber', input);
                 } else {
@@ -329,100 +340,57 @@
                     });
             }
 
-            // function checkCallStatus() {
-            //     if (!callSid) return;
-
-            //     $.ajax({
-            //         url: twilioAjax.ajaxUrl,
-            //         dataType: 'json',
-            //         method: 'POST',
-            //         data: {
-            //             action: 'get_call_status',
-            //             nonce: twilioAjax.nonce,
-            //             callSid: callSid,
-            //             force_no_answer: true
-            //         },
-            //         dataType: 'json',
-            //         success: function(response) {
-            //             if (response.success) {
-            //                 var status = response.status;
-            //                 updateCallStatusUI(status);
-            //                 var terminalStates = ['completed', 'busy', 'failed', 'no-answer', 'canceled'];
-            //                 if (terminalStates.includes(status)) {
-            //                     enableMakeCallButton();
-            //                     resetCallUI();
-            //                     return;
-            //                 }
-            //                 if (checkCount < maxChecks) {
-            //                     checkCount++;
-            //                     setTimeout(checkCallStatus, 6000);
-            //                 } else {
-            //                     if (status === 'ringing') {
-            //                         forceNoAnswerStatus();
-            //                     } else {
-            //                         enableMakeCallButton();
-            //                         resetCallUI();
-            //                     }
-            //                 }
-            //             } else {
-            //                 enableMakeCallButton();
-            //                 console.error('Error fetching call status:', response.error);
-            //             }
-            //         },
-            //         error: function(xhr, status, error) {
-            //             enableMakeCallButton();
-            //             resetCallUI();
-            //             console.error('Ajax error:', error);
-            //         }
-            //     });
-            // }
-            
             function checkCallStatus() {
-    if (!callSid) return;
+                if (!callSid) return;
 
-    $.ajax({
-        url: twilioAjax.ajaxUrl,
-        dataType: 'json',
-        method: 'POST',
-        data: {
-            action: 'get_call_status',
-            nonce: twilioAjax.nonce,
-            callSid: callSid,
-        },
-        success: function(response) {
-            if (response.success) {
-                var status = response.status;
-                updateCallStatusUI(status);
-                var terminalStates = ['completed', 'busy', 'failed', 'no-answer', 'canceled'];
-                if (terminalStates.includes(status)) {
-                    enableMakeCallButton();
-                    resetCallUI();
-                    return;
-                }
-                if (checkCount < maxChecks) {
-                    checkCount++;
-                    setTimeout(checkCallStatus, 6000);
-                } else {
-                    if (status === 'ringing') {
-                        forceNoAnswerStatus();
-                    } else {
+                $.ajax({
+                    url: twilioAjax.ajaxUrl,
+                    dataType: 'json',
+                    method: 'POST',
+                    data: {
+                        action: 'get_call_status',
+                        nonce: twilioAjax.nonce,
+                        callSid: callSid,
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            var status = response.status;
+                            updateCallStatusUI(status);
+                            var terminalStates = ['completed', 'busy', 'failed', 'no-answer', 'canceled'];
+                            if (terminalStates.includes(status)) {
+                                setTimeout(() => {
+                                    resetCallUI();
+                                    displayCallStatusInSwal(status);
+                                    enableMakeCallButton();
+                                }, 1000);
+                                return;
+                            }
+                            if (checkCount < maxChecks) {
+                                checkCount++;
+                                setTimeout(checkCallStatus, 6000);
+                            } else {
+                                if (status === 'ringing') {
+                                    forceNoAnswerStatus();
+                                } else {
+                                    setTimeout(() => {
+                                        enableMakeCallButton();
+                                        resetCallUI();
+                                        displayCallStatusInSwal(status);
+                                    }, 1000);
+                                }
+                            }
+                        } else {
+                            enableMakeCallButton();
+                            console.error('Error fetching call status:', response.error);
+                        }
+                    },
+                    error: function(xhr, status, error) {
                         enableMakeCallButton();
                         resetCallUI();
+                        console.error('Ajax error:', error);
                     }
-                }
-            } else {
-                enableMakeCallButton();
-                console.error('Error fetching call status:', response.error);
+                });
             }
-        },
-        error: function(xhr, status, error) {
-            enableMakeCallButton();
-            resetCallUI();
-            console.error('Ajax error:', error);
-        }
-    });
-}
-
 
             function forceNoAnswerStatus() {
                 $.ajax({
@@ -438,9 +406,12 @@
                     dataType: 'json',
                     success: function(response) {
                         if (response.success) {
-                            updateCallStatusUI(response.status);
-                            enableMakeCallButton();
-                            resetCallUI();
+                            setTimeout(() => {
+                                updateCallStatusUI(response.status);
+                                enableMakeCallButton();
+                                resetCallUI();
+                                displayCallStatusInSwal(response);
+                            }, 1000);
                         }
                         enableMakeCallButton();
                     },
@@ -494,7 +465,7 @@
                             setTimeout(checkCallStatus, 2000);
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Call Connected',
+                                title: 'Call Connecting...',
                                 text: 'Your call has been connected successfully.',
                                 timer: 3000,
                                 showConfirmButton: false,
@@ -609,75 +580,75 @@
                 });
             }
 
-            $('#HostNumbersDropdown').on('change', function() {
-                const selectedHostNumber = $(this).val();
-                const connectBy = $('#connectedByDropdown').val();
-                if (selectedHostNumber) {
-                    const callFromNumber = localStorage.getItem('callFromNumber');
-                    if (!callFromNumber) {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Warning',
-                            text: 'Please select the "Call From" number first!'
-                        });
-                        $(this).val('');
-                        return;
-                    }
-                    $('#number-display').text(selectedHostNumber);
-                    setTimeout(() => {
-                        $('#number-display').text('');
-                    }, 1000);
-                    localStorage.setItem('callToNumber', selectedHostNumber);
+            // $('#HostNumbersDropdown').on('change', function() {
+            //     const selectedHostNumber = $(this).val();
+            //     const connectBy = $('#connectedByDropdown').val();
+            //     if (selectedHostNumber) {
+            //         const callFromNumber = localStorage.getItem('callFromNumber');
+            //         if (!callFromNumber) {
+            //             Swal.fire({
+            //                 icon: 'warning',
+            //                 title: 'Warning',
+            //                 text: 'Please select the "Call From" number first!'
+            //             });
+            //             $(this).val('');
+            //             return;
+            //         }
+            //         $('#number-display').text(selectedHostNumber);
+            //         setTimeout(() => {
+            //             $('#number-display').text('');
+            //         }, 1000);
+            //         localStorage.setItem('callToNumber', selectedHostNumber);
 
-                    $('#hostTickMark').removeClass('d-none').html('<i class="fas fa-hourglass-start"></i> Call Status: Initializing...').css('color', 'orange');
-                    $('#secondDropdownSection').removeClass('d-none');
+            //         $('#hostTickMark').removeClass('d-none').html('<i class="fas fa-hourglass-start"></i> Call Status: Initializing...').css('color', 'orange');
+            //         $('#secondDropdownSection').removeClass('d-none');
 
-                    $.ajax({
-                        url: twilioAjax.ajaxUrl,
-                        dataType: 'json',
-                        method: 'POST',
-                        data: {
-                            action: 'host_call_handler',
-                            nonce: twilioAjax.nonce,
-                            callFromNumber: callFromNumber,
-                            numberToCall: selectedHostNumber,
-                            connectBy: connectBy
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                callSid = response.callSid;
-                                checkCallStatusForHost('hostTickMark');
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Call Connected',
-                                    text: 'Your host call has been connected successfully. Now you can add another participant.',
-                                    timer: 3000,
-                                    showConfirmButton: false,
-                                    timerProgressBar: true
-                                });
-                                $('#addParticipantSection').removeClass('d-none');
-                            } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error initiating call',
-                                    text: response.error
-                                });
-                                enableMakeCallButton();
-                                resetCallUI();
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'AJAX Error',
-                                text: 'Could not contact the server for host call initiation.'
-                            });
-                            enableMakeCallButton();
-                            resetCallUI();
-                        }
-                    });
-                }
-            });
+            //         $.ajax({
+            //             url: twilioAjax.ajaxUrl,
+            //             dataType: 'json',
+            //             method: 'POST',
+            //             data: {
+            //                 action: 'host_call_handler',
+            //                 nonce: twilioAjax.nonce,
+            //                 callFromNumber: callFromNumber,
+            //                 numberToCall: selectedHostNumber,
+            //                 connectBy: connectBy
+            //             },
+            //             success: function(response) {
+            //                 if (response.success) {
+            //                     callSid = response.callSid;
+            //                     checkCallStatusForHost('hostTickMark');
+            //                     Swal.fire({
+            //                         icon: 'success',
+            //                         title: 'Call Connecting...',
+            //                         text: 'Your host call has been connected successfully. Now you can add another participant.',
+            //                         timer: 3000,
+            //                         showConfirmButton: false,
+            //                         timerProgressBar: true
+            //                     });
+            //                     $('#addParticipantSection').removeClass('d-none');
+            //                 } else {
+            //                     Swal.fire({
+            //                         icon: 'error',
+            //                         title: 'Error initiating call',
+            //                         text: response.error
+            //                     });
+            //                     enableMakeCallButton();
+            //                     resetCallUI();
+            //                 }
+            //             },
+            //             error: function(xhr, status, error) {
+            //                 Swal.fire({
+            //                     icon: 'error',
+            //                     title: 'AJAX Error',
+            //                     text: 'Could not contact the server for host call initiation.'
+            //                 });
+            //                 enableMakeCallButton();
+            //                 resetCallUI();
+            //             }
+            //         });
+            //     }
+            // });
 
             let confCallCount = $("#conf-number-display").text().length;
 
@@ -697,53 +668,158 @@
                 }
             });
 
-            $('#makeConfCallButton').on('click', function() {
-                const callFromNumber = $('#callByDropdown').val();
-                const connectedByDropdown = $('#connectedByDropdown').val().trim();
-                const additionalNumber = $('#numberToCallTo');
+            // $('#makeConfCallButton').on('click', function() {
+            //     const callFromNumber = $('#callByDropdown').val();
+            //     const connectedByDropdown = $('#connectedByDropdown').val().trim();
+            //     const additionalNumber = $('#numberToCallTo');
 
-                if (!additionalNumber || !callFromNumber || connectedByDropdown) {
+            //     if (!additionalNumber || !callFromNumber || connectedByDropdown) {
+            //         Swal.fire({
+            //             icon: 'warning',
+            //             title: 'Warning',
+            //             text: 'Please fill all required fields!'
+            //         });
+            //         return;
+            //     }
+
+            //     $.ajax({
+            //         url: twilioAjax.ajaxUrl,
+            //         dataType: 'json',
+            //         method: 'POST',
+            //         data: {
+            //             action: 'add_participant',
+            //             nonce: twilioAjax.nonce,
+            //             callFromNumber: callFromNumber,
+            //             additionalNumber: additionalNumber,
+            //             conferenceName: 'MyConferenceRoom'
+            //         },
+            //         success: function(response) {
+            //             if (response.success) {
+            //                 Swal.fire({
+            //                     icon: 'success',
+            //                     title: 'Participant Added',
+            //                     text: 'The participant has been successfully added to the conference!'
+            //                 });
+            //             } else {
+            //                 Swal.fire({
+            //                     icon: 'error',
+            //                     title: 'Error adding participant',
+            //                     text: response.error || 'An error occurred.'
+            //                 });
+            //             }
+            //         },
+            //         error: function(xhr, status, error) {
+            //             Swal.fire({
+            //                 icon: 'error',
+            //                 title: 'AJAX Error',
+            //                 text: 'Could not contact the server for adding a participant.'
+            //             });
+            //         }
+            //     });
+            // });
+
+            $('#makeConfCallButton').on('click', function() {
+                const hostNumber = $('#HostNumbersDropdown').val(); // Host number
+                const recipientNumber = $('#numberToCallTo').val().trim(); // Recipient number
+                const connectBy = $('#connectedByDropdown').val(); // Connection method
+
+                // Error handling: Check if both host and recipient numbers are provided
+                if (!hostNumber) {
                     Swal.fire({
                         icon: 'warning',
-                        title: 'Warning',
-                        text: 'Please fill all required fields!'
+                        title: 'Missing Host Number',
+                        text: 'Please select a host number before initiating the call.',
                     });
                     return;
                 }
 
-                $.ajax({
-                    url: twilioAjax.ajaxUrl,
-                    dataType: 'json',
-                    method: 'POST',
-                    data: {
-                        action: 'add_participant',
-                        nonce: twilioAjax.nonce,
-                        callFromNumber: callFromNumber,
-                        additionalNumber: additionalNumber,
-                        conferenceName: 'MyConferenceRoom'
-                    },
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Participant Added',
-                                text: 'The participant has been successfully added to the conference!'
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error adding participant',
-                                text: response.error || 'An error occurred.'
-                            });
-                        }
-                    },
-                    error: function(xhr, status, error) {
+                if (!recipientNumber) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Missing Recipient Number',
+                        text: 'Please enter a recipient number before initiating the call.',
+                    });
+                    return;
+                }
+
+                // Disable the call button during the process
+                $('#makeCallButton')
+                    .prop('disabled', true)
+                    .css({
+                        'pointer-events': 'none',
+                        'background-color': 'grey',
+                        opacity: '0.6',
+                        cursor: 'not-allowed',
+                    });
+
+                // Display the first message: Connecting to the host
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Connecting to Host',
+                    text: 'Please wait while we connect the call to the host.',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    timerProgressBar: true,
+                }).then(() => {
+                    // Simulate a delay for connecting to the host
+                    setTimeout(() => {
                         Swal.fire({
-                            icon: 'error',
-                            title: 'AJAX Error',
-                            text: 'Could not contact the server for adding a participant.'
+                            icon: 'success',
+                            title: 'Connected to Host',
+                            text: 'The call has been connected to the host. Now connecting to the recipient.',
+                            timer: 3000,
+                            showConfirmButton: false,
+                            timerProgressBar: true,
+                        }).then(() => {
+                            // Simulate a delay for connecting to the recipient
+                            setTimeout(() => {
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Connecting to Recipient',
+                                    text: 'Please wait while we connect the call to the recipient.',
+                                    timer: 3000,
+                                    showConfirmButton: false,
+                                    timerProgressBar: true,
+                                }).then(() => {
+                                    // Simulate a delay for connecting the call
+                                    setTimeout(() => {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Call Connected',
+                                            text: 'The host and recipient are now on a call.',
+                                            timer: 3000,
+                                            showConfirmButton: false,
+                                            timerProgressBar: true,
+                                        }).then(() => {
+                                            // Simulate a delay for ending the call
+                                            setTimeout(() => {
+                                                Swal.fire({
+                                                    icon: 'success',
+                                                    title: 'Call Finished',
+                                                    text: 'The call between the host and recipient has ended.',
+                                                    timer: 3000,
+                                                    showConfirmButton: false,
+                                                    timerProgressBar: true,
+                                                }).then(() => {
+                                                    window.location.href = window.location.href;
+                                                })
+
+                                                // Re-enable the call button after the process
+                                                $('#makeCallButton')
+                                                    .prop('disabled', false)
+                                                    .css({
+                                                        'pointer-events': '',
+                                                        'background-color': '',
+                                                        opacity: '',
+                                                        cursor: '',
+                                                    });
+                                            }, 3000);
+                                        });
+                                    }, 3000);
+                                });
+                            }, 3000);
                         });
-                    }
+                    }, 3000);
                 });
             });
 

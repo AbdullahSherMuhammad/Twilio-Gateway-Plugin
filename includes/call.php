@@ -28,18 +28,18 @@ $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
 $per_page = 10;
 $offset = ($page - 1) * $per_page;
 
-$twilio_sms_table = $wpdb->prefix . 'twilio_call';
+$twilio_call_table = $wpdb->prefix . 'twilio_call';
 
 $call_data = $wpdb->get_results(
     $wpdb->prepare(
-        "SELECT * FROM $twilio_sms_table ORDER BY created_at DESC LIMIT %d OFFSET %d",
+        "SELECT * FROM $twilio_call_table ORDER BY created_at DESC LIMIT %d OFFSET %d",
         $per_page,
         $offset
     ),
     ARRAY_A
 );
 
-$total_call = $wpdb->get_var("SELECT COUNT(*) FROM $twilio_sms_table");
+$total_call = $wpdb->get_var("SELECT COUNT(*) FROM $twilio_call_table");
 $total_pages = ceil($total_call / $per_page);
 
 $response = [
